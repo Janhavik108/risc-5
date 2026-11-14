@@ -3,9 +3,7 @@
 A synthesizable, 5-stage pipelined RISC datapath (classic MIPS-style
 encoding) in Verilog, with a dedicated hazard-detection/forwarding
 unit and a self-checking testbench. Verified end-to-end with
-Icarus Verilog in this environment (26/26 checks pass) and written
-in plain Verilog-2001 so it drops into ModelSim/Questa or a
-Vivado/Quartus flow unchanged.
+ModelSim and Icarus Verilog in this environment (26/26 checks pass).
 
 ## Pipeline
 
