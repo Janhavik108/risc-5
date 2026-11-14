@@ -1,7 +1,7 @@
 // =============================================================
 // reg_file.v - 32 x 32-bit Register File (ID stage read, WB stage write)
 // - Register 0 is hardwired to zero.
-// - Write happens on the falling... no: write on posedge clk in WB,
+// - Write happens on posedge clk in WB,
 //   read is combinational and internally forwards a same-cycle
 //   write so that WB and ID can safely occur in the same cycle
 //   for back-to-back dependent instructions (register write-back
