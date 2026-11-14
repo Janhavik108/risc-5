@@ -31,6 +31,12 @@ module pipeline_top #(
 
     wire        stall_pc, stall_if_id, bubble_id_ex, branch_flush_if_id, pc_src;
     wire [31:0] branch_target;
+    wire        exmem_mem_to_reg, exmem_mem_read, exmem_mem_write_w_int;
+    wire [31:0] alu_result;
+    wire [4:0]  ex_write_reg;
+    wire [4:0]  exmem_write_reg_w;
+    wire        memwb_mem_to_reg_w;
+    wire [31:0] memwb_mem_rdata_w, memwb_alu_result_w;
 
     pc_reg u_pc (
         .clk(clk), .rst(rst),
@@ -106,6 +112,10 @@ module pipeline_top #(
         .id_ex_rt(idex_rt),
         .if_id_rs(id_rs),
         .if_id_rt(id_rt),
+        .id_uses_rt((opcode==`OP_RTYPE)||(opcode==`OP_SW)||(opcode==`OP_BEQ)),
+        .id_is_branch(branch_ctrl),
+        .ex_mem_mem_read(exmem_mem_read),
+        .ex_mem_rd(exmem_write_reg_w),
         .stall_pc(stall_pc),
         .stall_if_id(stall_if_id),
         .bubble_id_ex(bubble_id_ex)
@@ -115,7 +125,6 @@ module pipeline_top #(
     wire [1:0] fwd_branch_a, fwd_branch_b;
     wire [31:0] exmem_alu_result_w; // forward-declared from EX/MEM reg below
     wire        exmem_reg_write_w;
-    wire [4:0]  exmem_write_reg_w;
     wire        memwb_reg_write_w;  // == wb_reg_write
     wire [4:0]  memwb_write_reg_w;  // == wb_write_reg
     wire [31:0] memwb_write_data_w; // == wb_write_data
@@ -136,7 +145,7 @@ module pipeline_top #(
         endcase
     end
 
-    wire branch_taken = branch_ctrl && (branch_op_a == branch_op_b);
+    wire branch_taken = branch_ctrl && !stall_pc && (branch_op_a == branch_op_b);
     assign pc_src = branch_taken;
     assign branch_flush_if_id = branch_taken;
 
@@ -198,16 +207,14 @@ module pipeline_top #(
 
     wire [31:0] alu_in_b = idex_alu_src ? idex_imm32 : fwd_b_value;
 
-    wire [31:0] alu_result;
     wire        alu_zero;
     alu u_alu (.a(alu_in_a), .b(alu_in_b), .alu_ctrl(alu_ctrl), .result(alu_result), .zero(alu_zero));
 
-    wire [4:0] ex_write_reg = idex_reg_dst ? idex_rd : idex_rt;
+    assign ex_write_reg = idex_reg_dst ? idex_rd : idex_rt;
 
     // =========================================================
     // EX/MEM REGISTER
     // =========================================================
-    wire        exmem_mem_to_reg, exmem_mem_read;
     wire [31:0] exmem_write_data;
 
     ex_mem_reg u_ex_mem (
@@ -221,7 +228,6 @@ module pipeline_top #(
         .alu_result_out(exmem_alu_result_w), .write_data_out(exmem_write_data),
         .write_reg_out(exmem_write_reg_w)
     );
-    wire exmem_mem_write_w_int;
 
     // =========================================================
     // MEM STAGE
@@ -246,8 +252,6 @@ module pipeline_top #(
         .mem_rdata_out(memwb_mem_rdata_w), .alu_result_out(memwb_alu_result_w),
         .write_reg_out(memwb_write_reg_w)
     );
-    wire memwb_mem_to_reg_w;
-    wire [31:0] memwb_mem_rdata_w, memwb_alu_result_w;
 
     // =========================================================
     // WB STAGE

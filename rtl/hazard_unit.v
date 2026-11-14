@@ -16,18 +16,30 @@ module hazard_unit (
     input  wire [4:0]  id_ex_rt,           // its destination register
     input  wire [4:0]  if_id_rs,           // source regs of instr in ID
     input  wire [4:0]  if_id_rt,
+    input  wire        id_uses_rt,         // instr in ID actually reads rt
+    input  wire        id_is_branch,       // instr in ID is a BEQ
+    input  wire        ex_mem_mem_read,    // load currently in MEM
+    input  wire [4:0]  ex_mem_rd,          // its destination register
 
     output wire        stall_pc,           // freeze PC
     output wire        stall_if_id,        // freeze IF/ID register
     output wire        bubble_id_ex        // force ID/EX control = 0 (NOP)
 );
 
+    // (1) classic load-use: load in EX, consumer in ID (rt only counts if
+    //     the consumer really reads rt -> no false stall on lw;addi same rt)
     wire load_use_hazard = id_ex_mem_read &&
-                            ((id_ex_rt == if_id_rs) || (id_ex_rt == if_id_rt)) &&
+                            ((id_ex_rt == if_id_rs) || (id_uses_rt && id_ex_rt == if_id_rt)) &&
                             (id_ex_rt != 5'd0);
+    // (2) branch-in-ID needs its operand one cycle EARLIER than EX would
+    //     provide it: load in MEM has only the address in EX/MEM.alu_result
+    wire branch_load_hazard = id_is_branch && ex_mem_mem_read &&
+                            ((ex_mem_rd == if_id_rs) || (ex_mem_rd == if_id_rt)) &&
+                            (ex_mem_rd != 5'd0);
+    wire any_stall = load_use_hazard | branch_load_hazard;
 
-    assign stall_pc    = load_use_hazard;
-    assign stall_if_id = load_use_hazard;
-    assign bubble_id_ex = load_use_hazard;
+    assign stall_pc    = any_stall;
+    assign stall_if_id = any_stall;
+    assign bubble_id_ex = any_stall;
 
 endmodule
